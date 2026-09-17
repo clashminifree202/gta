@@ -39,6 +39,7 @@ import asyncio
 import hashlib
 import shutil
 import io
+import mmap
 import aiofiles
 import brotli
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
@@ -1244,19 +1245,29 @@ class PackedArchive:
         self._folders: Dict[str, List[str]] = {}  # folder_path -> list of filenames
         self._folder_copies: Dict[str, str] = {}  # copy_folder -> source_folder
         self._initialized = False
+        # Memory-mapped file so multi-GB archives are not loaded into RAM
+        self._mmap_file: Optional[BinaryIO] = None
+        self._mmap = None
     
     async def init(self) -> None:
         """
         Initialize the archive by reading the index.
         Must be called before using open().
+
+        The archive is memory-mapped instead of read into RAM so that
+        large archives (e.g. >1GB) work on memory-constrained hosts.
         """
         if self._initialized:
             return
-        
-        async with aiofiles.open(self._path, 'rb') as f:
-            data = await f.read()
-        
-        self._parse_index(data)
+
+        def _open_and_parse():
+            f = open(self._path, 'rb')
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            self._parse_index(mm)
+            return f, mm
+
+        loop = asyncio.get_event_loop()
+        self._mmap_file, self._mmap = await loop.run_in_executor(None, _open_and_parse)
         self._initialized = True
     
     def _parse_index(self, data: bytes) -> None:
