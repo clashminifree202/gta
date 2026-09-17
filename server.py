@@ -890,8 +890,8 @@ if __name__ == "__main__":
     else:
         vcsky_mode = 'local' if args.vcsky_local else 'proxy'
         vcbr_mode = 'local' if args.vcbr_local else 'proxy'
-        vcsky_info = args.vcsky_local or VCSKY_BASE_URL
-        vcbr_info = args.vcbr_local or VCBR_BASE_URL
+        vcsky_info = args.vcsky_local or args.vcsky_url
+        vcbr_info = args.vcbr_local or args.vcbr_url
         print(f"vcsky: {vcsky_mode} ({vcsky_info})")
         print(f"vcbr: {vcbr_mode} ({vcbr_info})")
     
