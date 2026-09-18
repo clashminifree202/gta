@@ -286,11 +286,12 @@ VCBR_BASE_URL = args.vcbr_url
 VCSKY_LOCAL_PATH = args.vcsky_local  # None, 'vcsky', or custom path
 VCBR_LOCAL_PATH = args.vcbr_local    # None, 'vcbr', or custom path
 
-# ---- Fake YouTube access gate ------------------------------------------
-# Set GATE_PASSWORD in Render environment. Root "/" serves the real game ONLY
-# after the visitor types this word into the (fake) YouTube search bar.
+# ---- Fake YouTube access gate (REMOVED / disabled by default) -----------
+# This fake-YouTube "ownership gate" is DISABLED unless explicitly opted in
+# with BOTH GATE_ENABLED=1 AND GATE_PASSWORD in the environment.
+# Root "/" always serves the real game directly.
 GATE_PASSWORD = os.environ.get("GATE_PASSWORD", os.environ.get("REVCDOS_PASSWORD", ""))
-GATE_ENABLED = bool(GATE_PASSWORD)
+GATE_ENABLED = os.environ.get("GATE_ENABLED", "") == "1" and bool(GATE_PASSWORD)
 GATE_COOKIE = "revcdos_gate"
 GATE_HASH = hashlib.sha256(GATE_PASSWORD.encode()).hexdigest() if GATE_ENABLED else ""
 if GATE_ENABLED:
