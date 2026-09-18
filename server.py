@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import asyncio
 import argparse
@@ -272,6 +272,54 @@ async def setup_unpacked(source: str) -> tuple:
 
 
 app = FastAPI()
+
+
+# ---- Self-ping keep-alive (stops Render free spin-down -> black screen) ----
+# Render free sleeps the instance after ~15 min without traffic; the next
+# visitor then waits through a cold ~1 GB boot (the old permanent black).
+# Self-pinging /healthz every few minutes keeps the instance warm so the
+# game appears instantly.
+#   - URL: SELF_URL, else RENDER_EXTERNAL_URL, else RENDER_URL (injected by Render).
+#   - Interval (seconds): SELF_PING_INTERVAL (default 540 = under the 15 min sleep).
+#   - Disable: SELF_PING_ENABLED=0
+SELF_URL = (os.environ.get("SELF_URL")
+            or os.environ.get("RENDER_EXTERNAL_URL")
+            or os.environ.get("RENDER_URL")
+            or "")
+SELF_PING_ENABLED = os.environ.get("SELF_PING_ENABLED", "1").lower() not in ("0", "false")
+SELF_PING_INTERVAL = float(os.environ.get("SELF_PING_INTERVAL", "540"))
+if SELF_PING_ENABLED and SELF_URL:
+    print(f"[selfping] Keep-alive ACTIVE -> {SELF_URL} every {SELF_PING_INTERVAL:.0f}s")
+else:
+    print("[selfping] Keep-alive OFF (no SELF_URL/RENDER_EXTERNAL_URL set, or SELF_PING_ENABLED=0).")
+
+
+@app.on_event("startup")
+async def _start_self_ping():
+    if not (SELF_PING_ENABLED and SELF_URL):
+        return
+    import httpx
+
+    async def loop():
+        base = SELF_URL.rstrip("/")
+        while True:
+            await asyncio.sleep(SELF_PING_INTERVAL)
+            try:
+                async with httpx.AsyncClient(timeout=15) as c:
+                    r = await c.get(f"{base}/healthz")
+                    print(f"[selfping] {r.status_code} -> instance kept warm")
+            except Exception as e:
+                print(f"[selfping] ping error: {e}")
+
+    asyncio.create_task(loop())
+
+
+@app.get("/healthz")
+async def healthz():
+    # Cheap liveness endpoint: no gate, no game load, fast 200 for keep-alive
+    # and for Render's health check.
+    return Response("ok", media_type="text/plain",
+                    headers={"Cache-Control": "no-store"})
 
 if args.login and args.password:
     app.add_middleware(BasicAuthMiddleware, username=args.login, password=args.password)
