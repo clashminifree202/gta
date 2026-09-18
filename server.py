@@ -286,18 +286,19 @@ VCBR_BASE_URL = args.vcbr_url
 VCSKY_LOCAL_PATH = args.vcsky_local  # None, 'vcsky', or custom path
 VCBR_LOCAL_PATH = args.vcbr_local    # None, 'vcbr', or custom path
 
-# ---- Fake YouTube access gate (REMOVED / disabled by default) -----------
-# This fake-YouTube "ownership gate" is DISABLED unless explicitly opted in
-# with BOTH GATE_ENABLED=1 AND GATE_PASSWORD in the environment.
-# Root "/" always serves the real game directly.
-GATE_PASSWORD = os.environ.get("GATE_PASSWORD", os.environ.get("REVCDOS_PASSWORD", ""))
-GATE_ENABLED = os.environ.get("GATE_ENABLED", "") == "1" and bool(GATE_PASSWORD)
+# ---- Simple password login gate (no fake YouTube) --------------------------
+# A clean password-protection gate. "Root" shows a password login; only after
+# entering the right key does it serve the game. No fake YouTube, ever.
+#   - Default password: "vice29" (change it with GATE_PASSWORD in Render).
+#   - Disable the gate entirely: set GATE_ENABLED=0.
+GATE_PASSWORD = os.environ.get("GATE_PASSWORD", os.environ.get("REVCDOS_PASSWORD", "vice29"))
+GATE_ENABLED = os.environ.get("GATE_ENABLED", "").lower() not in ("0", "false") and bool(GATE_PASSWORD)
 GATE_COOKIE = "revcdos_gate"
 GATE_HASH = hashlib.sha256(GATE_PASSWORD.encode()).hexdigest() if GATE_ENABLED else ""
 if GATE_ENABLED:
-    print(f"[gate] Fake YouTube gate ACTIVE (set GATE_PASSWORD to change/disable).")
+    print(f"[gate] Password gate ACTIVE (default key in place; override with GATE_PASSWORD).")
 else:
-    print("[gate] GATE_PASSWORD not set - gate DISABLED, game served directly.")
+    print("[gate] GATE_ENABLED=0 - gate DISABLED, game served directly.")
 
 
 def request_to_url(request: Request, path: str, base_url: str):
